@@ -28,9 +28,9 @@ public class AuthService {
                 .prenom(req.prenom())
                 .role(req.role())
                 .build();
-        userRepo.save(user);
-        String token = jwtService.generateToken(user.getEmail(), user.getRole().name(), user.getId());
-        return new AuthResponse(token, user.getRole().name(), user.getNom(), user.getId());
+        User savedUser = userRepo.save(user);
+        String token = jwtService.generateToken(savedUser.getEmail(), savedUser.getRole().name(), savedUser.getId());
+        return new AuthResponse(token, savedUser.getRole().name(), savedUser.getNom(), savedUser.getId());
     }
 
     public AuthResponse login(LoginRequest req) {

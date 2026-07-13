@@ -11,7 +11,7 @@
     ></div>
   </div>
 
-  <div class="w-full max-w-md relative animate-scale-in">
+  <main class="w-full max-w-md relative animate-scale-in">
     <!-- Logo -->
     <div class="text-center mb-8">
       <div
@@ -84,6 +84,7 @@
             <button
               type="button"
               (click)="togglePassword()"
+              aria-label="Afficher ou masquer le mot de passe"
               class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
             >
               <lucide-icon
@@ -126,7 +127,7 @@
       <!-- Comptes test -->
       <div class="mt-6 pt-6 border-t border-gray-100">
         <p
-          class="text-xs text-gray-400 text-center mb-3 font-medium uppercase tracking-wide"
+          class="text-xs text-gray-600 text-center mb-3 font-medium uppercase tracking-wide"
         >
           Comptes de démonstration
         </p>
@@ -176,5 +177,5 @@
         </div>
       </div>
     </div>
-  </div>
+  </main>
 </div>
