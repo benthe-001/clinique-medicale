@@ -190,7 +190,7 @@
                     <lucide-icon [img]="Edit" size="16"></lucide-icon>
                   </button>
                   <button
-                    (click)="supprimer(patient.id)"
+                    (click)="demanderSuppression(patient)"
                     class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <lucide-icon [img]="Trash2" size="16"></lucide-icon>
@@ -221,4 +221,21 @@
     (cancelled)="closeForm()"
   >
   </app-patient-form>
+}
+
+@if (showConfirm()) {
+  <app-confirm-dialog
+    title="Supprimer le patient"
+    [message]="
+      'Voulez-vous vraiment supprimer ' +
+      patientASupprimer()?.prenom +
+      ' ' +
+      patientASupprimer()?.nom +
+      ' ? Cette action est irréversible.'
+    "
+    confirmLabel="Supprimer"
+    [isLoading]="isDeleting()"
+    (confirmed)="confirmerSuppression()"
+    (cancelled)="annulerSuppression()"
+  ></app-confirm-dialog>
 }

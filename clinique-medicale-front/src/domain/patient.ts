@@ -1,6 +1,6 @@
 // src/domain/patient.ts
 
-export type Genre = "MASCULIN" | "FEMININ" | "AUTRE";
+export type Genre = "MASCULIN" | "FEMININ";
 
 export type AllergySeverite = "LÉGÈRE" | "MODÉRÉE" | "SÉVÈRE";
 

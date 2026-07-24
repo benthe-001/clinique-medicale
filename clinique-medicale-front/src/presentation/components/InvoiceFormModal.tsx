@@ -1,9 +1,11 @@
 // src/presentation/components/InvoiceFormModal.tsx
 
+import { useEffect } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -21,16 +23,37 @@ const invoiceLineSchema = z.object({
   prixUnitaire: z.number().min(0, "Prix invalide"),
 });
 
-const invoiceFormSchema = z.object({
-  patientId: z.string().min(1, "Patient requis"),
-  appointmentId: z.string().optional(),
-  dateFacture: z.string().min(1, "Date de facture requise"),
-  dateEcheance: z.string().optional(),
-  lignes: z.array(invoiceLineSchema).min(1, "Au moins une ligne requise"),
-  notes: z.string().optional(),
-});
+const invoiceFormSchema = z
+  .object({
+    patientId: z.string().min(1, "Patient requis"),
+    appointmentId: z.string().optional(),
+    dateFacture: z.string().min(1, "Date de facture requise"),
+    dateEcheance: z.string().optional(),
+    lignes: z.array(invoiceLineSchema).min(1, "Au moins une ligne requise"),
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) =>
+      !data.dateFacture ||
+      !data.dateEcheance ||
+      new Date(data.dateEcheance) >= new Date(data.dateFacture),
+    {
+      message:
+        "La date d'échéance ne peut pas être antérieure à la date de facture",
+      path: ["dateEcheance"],
+    },
+  );
 
 type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
+
+const EMPTY_DEFAULTS: InvoiceFormValues = {
+  patientId: "",
+  appointmentId: "",
+  dateFacture: "",
+  dateEcheance: "",
+  lignes: [{ description: "", quantite: 1, prixUnitaire: 0 }],
+  notes: "",
+};
 
 interface InvoiceFormModalProps {
   isOpen: boolean;
@@ -40,7 +63,7 @@ interface InvoiceFormModalProps {
 export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
   const { data: patients } = usePatients();
   const { data: appointments } = useAppointments();
-  const { mutate: creer, isPending, error } = useCreateInvoice();
+  const { mutate: creer, isPending } = useCreateInvoice();
 
   const {
     register,
@@ -50,29 +73,31 @@ export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
     formState: { errors },
   } = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceFormSchema),
-    defaultValues: {
-      lignes: [{ description: "", quantite: 1, prixUnitaire: 0 }],
-    },
+    defaultValues: EMPTY_DEFAULTS,
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "lignes" });
   const patientId = useWatch({ control, name: "patientId" });
   const lignes = useWatch({ control, name: "lignes" });
+  const dateFactureValue = useWatch({ control, name: "dateFacture" });
+
+  useEffect(() => {
+    if (isOpen) reset(EMPTY_DEFAULTS);
+  }, [isOpen, reset]);
 
   const patientOptions = (patients ?? []).map((p) => ({
     value: p.id,
     label: getNomComplet(p),
   }));
-  const appointmentsDuPatient = (appointments ?? []).filter(
-    (a) => a.patientId === patientId,
-  );
-  const appointmentOptions = appointmentsDuPatient.map((a) => ({
-    value: a.id,
-    label: new Date(a.debut).toLocaleString("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }),
-  }));
+  const appointmentOptions = (appointments ?? [])
+    .filter((a) => a.patientId === patientId)
+    .map((a) => ({
+      value: a.id,
+      label: new Date(a.debut).toLocaleString("fr-FR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
+    }));
 
   const totalEstime = calculerTotalLignes(lignes ?? []);
 
@@ -88,9 +113,11 @@ export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
       },
       {
         onSuccess: () => {
-          reset();
+          toast.success("Facture créée avec succès");
+          reset(EMPTY_DEFAULTS);
           onClose();
         },
+        onError: (err) => toast.error(getErrorMessage(err)),
       },
     );
   }
@@ -114,7 +141,7 @@ export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
         <Select
           label="Rendez-vous associé (optionnel)"
           options={appointmentOptions}
-          placeholder="Aucun"
+          placeholder="Aucun rendez-vous associé"
           {...register("appointmentId")}
         />
         <div className="grid grid-cols-2 gap-4">
@@ -128,6 +155,8 @@ export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
           <Input
             label="Date d'échéance"
             type="date"
+            min={dateFactureValue || undefined}
+            error={errors.dateEcheance?.message}
             {...register("dateEcheance")}
           />
         </div>
@@ -162,6 +191,7 @@ export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
                 <Input
                   label="Description"
                   required
+                  placeholder="Ex : Consultation générale"
                   error={errors.lignes?.[index]?.description?.message}
                   {...register(`lignes.${index}.description`)}
                 />
@@ -181,6 +211,7 @@ export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
                   min={0}
                   step="0.01"
                   required
+                  placeholder="0"
                   error={errors.lignes?.[index]?.prixUnitaire?.message}
                   {...register(`lignes.${index}.prixUnitaire`, {
                     valueAsNumber: true,
@@ -212,11 +243,11 @@ export function InvoiceFormModal({ isOpen, onClose }: InvoiceFormModalProps) {
           </p>
         </div>
 
-        <Input label="Notes" {...register("notes")} />
-
-        {error && (
-          <p className="text-sm text-danger-600">{getErrorMessage(error)}</p>
-        )}
+        <Input
+          label="Notes"
+          placeholder="Ex : Paiement par virement, règlement partiel accepté"
+          {...register("notes")}
+        />
 
         <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>

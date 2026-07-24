@@ -65,4 +65,17 @@ public interface AppointmentJpaRepository extends JpaRepository<Appointment, Str
             @Param("maintenant") LocalDateTime maintenant,
             @Param("limite") LocalDateTime limite
     );
+
+    @Query("SELECT a FROM Appointment a WHERE " +
+            "EXISTS (SELECT p FROM Patient p WHERE p.id = a.patientId AND p.actif = true)")
+    List<Appointment> findAllWithActivePatient();
+
+    // Et la variante par médecin
+    @Query("SELECT a FROM Appointment a WHERE " +
+            "a.medecinId = :medecinId AND " +
+            "a.status != 'ANNULE' AND " +
+            "EXISTS (SELECT p FROM Patient p WHERE p.id = a.patientId AND p.actif = true)")
+    List<Appointment> findByMedecinIdWithActivePatient(
+            @Param("medecinId") String medecinId
+    );
 }

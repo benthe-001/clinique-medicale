@@ -95,6 +95,7 @@
               <p class="text-xs text-red-600">Date de début requise</p>
             }
           </div>
+          <!-- Remplace le champ fin entièrement -->
           <div class="space-y-1.5">
             <label class="block text-sm font-medium text-gray-700">
               Fin <span class="text-red-500">*</span>
@@ -103,12 +104,20 @@
               type="datetime-local"
               formControlName="fin"
               class="input-field"
+              [min]="minFin"
               [class.border-red-300]="
-                form.get('fin')?.invalid && form.get('fin')?.touched
+                (form.get('fin')?.invalid && form.get('fin')?.touched) ||
+                (form.errors?.['finAvantDebut'] && form.get('fin')?.touched)
               "
             />
             @if (form.get("fin")?.invalid && form.get("fin")?.touched) {
               <p class="text-xs text-red-600">Date de fin requise</p>
+            } @else if (
+              form.errors?.["finAvantDebut"] && form.get("fin")?.touched
+            ) {
+              <p class="text-xs text-red-600">
+                La date de fin doit être après le début
+              </p>
             }
           </div>
         </div>
@@ -157,7 +166,9 @@
           </button>
           <button
             type="submit"
-            [disabled]="form.invalid || loading()"
+            [disabled]="
+              form.invalid || form.errors?.['finAvantDebut'] || loading()
+            "
             class="btn-primary flex items-center gap-2"
           >
             @if (loading()) {

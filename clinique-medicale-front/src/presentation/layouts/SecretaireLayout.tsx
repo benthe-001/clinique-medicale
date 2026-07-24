@@ -15,6 +15,7 @@ import { useChatConnection } from "../../features/chat/useChatConnection";
 import { useUnreadCounts } from "../../features/chat/useUnreadCounts";
 import { useTotalUnreadCount } from "../../features/chat/useTotalUnreadCount";
 import type { SidebarItem } from "../components/Sidebar";
+import { NotificationBell } from "../components/NotificationBell";
 
 export default function SecretaireLayout() {
   const user = useAuth((state) => state.user);
@@ -67,6 +68,7 @@ export default function SecretaireLayout() {
         userName={user ? getNomComplet(user) : ""}
         roleLabel="SECRÉTAIRE"
         onLogout={handleLogout}
+        headerExtra={<NotificationBell />}
       />
       <main className="flex-1 overflow-y-auto p-6">
         <Outlet />

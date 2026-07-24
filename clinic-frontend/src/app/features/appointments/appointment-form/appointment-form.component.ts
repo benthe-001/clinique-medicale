@@ -11,7 +11,16 @@ import { PatientService } from '../../patients/services/patient.service';
 import { UserService, UserSummary } from '../../../core/services/user.service';
 import { Patient } from '../../patients/models/patient.model';
 import { LucideAngularModule, X, Save } from 'lucide-angular';
+import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 
+function finApresDebutValidator(): ValidatorFn {
+  return (group: AbstractControl): ValidationErrors | null => {
+    const debut = group.get('debut')?.value;
+    const fin = group.get('fin')?.value;
+    if (!debut || !fin) return null;
+    return new Date(fin) > new Date(debut) ? null : { finAvantDebut: true };
+  };
+}
 @Component({
   selector: 'app-appointment-form',
   standalone: true,
@@ -39,15 +48,18 @@ export class AppointmentFormComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.form = this.fb.group({
-      patientId: ['', Validators.required],
-      medecinId: ['', Validators.required],
-      debut: ['', Validators.required],
-      fin: ['', Validators.required],
-      motif: [''],
-      salle: [''],
-      notes: [''],
-    });
+    this.form = this.fb.group(
+      {
+        patientId: ['', Validators.required],
+        medecinId: ['', Validators.required],
+        debut: ['', Validators.required],
+        fin: ['', Validators.required],
+        motif: [''],
+        salle: [''],
+        notes: [''],
+      },
+      { validators: finApresDebutValidator() },
+    );
 
     this.patientService.lister().subscribe({
       next: (p) => this.patients.set(p),
@@ -56,6 +68,11 @@ export class AppointmentFormComponent implements OnInit {
     this.userService.getMedecins().subscribe({
       next: (m) => this.medecins.set(m),
     });
+  }
+
+  get minFin(): string {
+    const debut = this.form.get('debut')?.value;
+    return debut ?? '';
   }
 
   onSubmit() {

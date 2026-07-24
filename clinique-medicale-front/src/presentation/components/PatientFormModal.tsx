@@ -5,6 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -26,8 +27,7 @@ const patientFormSchema = z.object({
   email: z.string().min(1, "Email requis").email("Email invalide"),
   telephone: z.string().optional(),
   dateNaissance: z.string().min(1, "Date de naissance requise"),
-  // Pas de preprocess : '' est une valeur réelle de l'union, convertie en undefined dans onSubmit.
-  genre: z.enum(["", "MASCULIN", "FEMININ", "AUTRE"]),
+  genre: z.enum(["", "MASCULIN", "FEMININ"]),
   adresse: z.string().optional(),
   numeroSecuriteSociale: z.string().optional(),
   antecedents: z.string().optional(),
@@ -89,7 +89,7 @@ function patientToFormValues(patient: Patient | null): PatientFormValues {
 interface PatientFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  patient: Patient | null; // null = création, sinon édition
+  patient: Patient | null;
 }
 
 export function PatientFormModal({
@@ -98,16 +98,8 @@ export function PatientFormModal({
   patient,
 }: PatientFormModalProps) {
   const isEdition = patient !== null;
-  const {
-    mutate: creer,
-    isPending: isCreating,
-    error: createError,
-  } = useCreatePatient();
-  const {
-    mutate: modifier,
-    isPending: isUpdating,
-    error: updateError,
-  } = useUpdatePatient();
+  const { mutate: creer, isPending: isCreating } = useCreatePatient();
+  const { mutate: modifier, isPending: isUpdating } = useUpdatePatient();
 
   const {
     register,
@@ -126,8 +118,8 @@ export function PatientFormModal({
   });
 
   useEffect(() => {
-    reset(patientToFormValues(patient));
-  }, [patient, reset]);
+    if (isOpen) reset(patientToFormValues(patient));
+  }, [isOpen, patient, reset]);
 
   function onSubmit(values: PatientFormValues) {
     const payload = {
@@ -149,14 +141,28 @@ export function PatientFormModal({
     };
 
     if (isEdition && patient) {
-      modifier({ id: patient.id, payload }, { onSuccess: onClose });
+      modifier(
+        { id: patient.id, payload },
+        {
+          onSuccess: () => {
+            toast.success("Patient modifié avec succès");
+            onClose();
+          },
+          onError: (err) => toast.error(getErrorMessage(err)),
+        },
+      );
     } else {
-      creer(payload, { onSuccess: onClose });
+      creer(payload, {
+        onSuccess: () => {
+          toast.success("Patient créé avec succès");
+          onClose();
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+      });
     }
   }
 
   const isPending = isCreating || isUpdating;
-  const error = createError || updateError;
 
   return (
     <Modal
@@ -172,22 +178,29 @@ export function PatientFormModal({
             <Input
               label="Nom"
               required
+              placeholder="Ex : Diallo"
               error={errors.nom?.message}
               {...register("nom")}
             />
             <Input
               label="Prénom"
               required
+              placeholder="Ex : Ibrahima"
               error={errors.prenom?.message}
               {...register("prenom")}
             />
             <Input
               label="Email"
               type="email"
+              placeholder="Ex : patient@email.com"
               error={errors.email?.message}
               {...register("email")}
             />
-            <Input label="Téléphone" {...register("telephone")} />
+            <Input
+              label="Téléphone"
+              placeholder="Ex : +224 620 00 00 00"
+              {...register("telephone")}
+            />
             <Input
               label="Date de naissance"
               type="date"
@@ -201,9 +214,14 @@ export function PatientFormModal({
               options={GENRE_OPTIONS}
               {...register("genre")}
             />
-            <Input label="Adresse" {...register("adresse")} />
+            <Input
+              label="Adresse"
+              placeholder="Ex : Kaloum, Conakry"
+              {...register("adresse")}
+            />
             <Input
               label="Numéro de sécurité sociale"
+              placeholder="Ex : 1 234 567 890"
               {...register("numeroSecuriteSociale")}
             />
           </div>
@@ -214,14 +232,24 @@ export function PatientFormModal({
             Historique médical
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Antécédents" {...register("antecedents")} />
+            <Input
+              label="Antécédents"
+              placeholder="Ex : Diabète type 2, HTA"
+              {...register("antecedents")}
+            />
             <Input
               label="Maladies chroniques"
+              placeholder="Ex : Asthme"
               {...register("maladiesChroniques")}
             />
-            <Input label="Chirurgies" {...register("chirurgies")} />
+            <Input
+              label="Chirurgies"
+              placeholder="Ex : Appendicectomie 2018"
+              {...register("chirurgies")}
+            />
             <Input
               label="Traitements en cours"
+              placeholder="Ex : Metformine 500mg"
               {...register("traitementsEnCours")}
             />
           </div>
@@ -252,6 +280,7 @@ export function PatientFormModal({
               >
                 <Input
                   label="Allergène"
+                  placeholder="Ex : Pénicilline"
                   error={errors.allergies?.[index]?.nom?.message}
                   {...register(`allergies.${index}.nom`)}
                 />
@@ -262,6 +291,7 @@ export function PatientFormModal({
                 />
                 <Input
                   label="Réaction"
+                  placeholder="Ex : Urticaire, choc"
                   error={errors.allergies?.[index]?.reaction?.message}
                   {...register(`allergies.${index}.reaction`)}
                 />
@@ -276,10 +306,6 @@ export function PatientFormModal({
             ))}
           </div>
         </section>
-
-        {error && (
-          <p className="text-sm text-danger-600">{getErrorMessage(error)}</p>
-        )}
 
         <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>

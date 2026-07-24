@@ -68,7 +68,7 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> listerTous() {
-        return appointmentRepo.findAll()
+        return appointmentRepo.findAllWithActivePatient()
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -76,8 +76,7 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> listerParMedecin(String medecinId) {
-        return appointmentRepo
-                .findByMedecinIdAndStatusNot(medecinId, AppointmentStatus.ANNULE)
+        return appointmentRepo.findByMedecinIdWithActivePatient(medecinId)
                 .stream()
                 .map(this::toResponse)
                 .toList();

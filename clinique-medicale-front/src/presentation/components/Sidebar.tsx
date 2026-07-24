@@ -3,6 +3,7 @@
 import { NavLink } from "react-router-dom";
 import { LogOut, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
+import { useChatStore } from "../../features/chat/useChatStore";
 
 export interface SidebarItem {
   to: string;
@@ -28,6 +29,7 @@ export function Sidebar({
   onLogout,
   headerExtra,
 }: SidebarProps) {
+  const estConnecte = useChatStore((state) => state.estConnecte);
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
       <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
@@ -41,8 +43,17 @@ export function Sidebar({
       </div>
 
       <div className="flex items-center gap-3 border-b border-gray-200 px-5 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-          {userName.charAt(0).toUpperCase()}
+        <div className="relative">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+            {userName.charAt(0).toUpperCase()}
+          </div>
+          {/* Indicateur en ligne/hors ligne */}
+          <span
+            className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${
+              estConnecte ? "bg-green-500" : "bg-gray-400"
+            }`}
+            title={estConnecte ? "En ligne" : "Hors ligne"}
+          />
         </div>
         <div>
           <p className="text-sm font-medium text-gray-900">{userName}</p>

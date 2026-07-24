@@ -1,3 +1,5 @@
+// src/app/features/patients/patient-list/patient-list.component.ts
+
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -6,6 +8,7 @@ import { PatientService } from '../services/patient.service';
 import { Patient } from '../models/patient.model';
 import { PatientFormComponent } from '../patient-form/patient-form.component';
 import { ToastService } from '../../../shared/services/toast.service';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { fadeInUp, listAnimation } from '../../../shared/animations/animations';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import {
@@ -31,6 +34,7 @@ import {
     LucideAngularModule,
     PatientFormComponent,
     PaginationComponent,
+    ConfirmDialogComponent,
   ],
   animations: [fadeInUp, listAnimation],
   templateUrl: './patient-list.component.html',
@@ -49,11 +53,16 @@ export class PatientListComponent implements OnInit {
   patients = signal<Patient[]>([]);
   filtered = signal<Patient[]>([]);
   loading = signal(true);
+  isDeleting = signal(false);
   searchQuery = signal('');
   showForm = signal(false);
   editPatient = signal<Patient | null>(null);
   currentPage = signal(1);
   pageSize = signal(10);
+
+  // Confirmation suppression
+  showConfirm = signal(false);
+  patientASupprimer = signal<Patient | null>(null);
 
   constructor(
     private patientService: PatientService,
@@ -97,18 +106,33 @@ export class PatientListComponent implements OnInit {
     this.toastService.success('Patient enregistré avec succès');
   }
 
-  supprimer(id: string) {
-    if (confirm('Voulez-vous vraiment supprimer ce patient ?')) {
-      this.patientService.supprimer(id).subscribe({
-        next: () => {
-          this.toastService.success('Patient supprimé avec succès');
-          this.loadPatients();
-        },
-        error: () => {
-          this.toastService.error('Erreur lors de la suppression');
-        },
-      });
-    }
+  demanderSuppression(patient: Patient) {
+    this.patientASupprimer.set(patient);
+    this.showConfirm.set(true);
+  }
+
+  confirmerSuppression() {
+    const patient = this.patientASupprimer();
+    if (!patient) return;
+    this.isDeleting.set(true);
+    this.patientService.supprimer(patient.id).subscribe({
+      next: () => {
+        this.toastService.success('Patient supprimé avec succès');
+        this.showConfirm.set(false);
+        this.patientASupprimer.set(null);
+        this.isDeleting.set(false);
+        this.loadPatients();
+      },
+      error: () => {
+        this.toastService.error('Erreur lors de la suppression');
+        this.isDeleting.set(false);
+      },
+    });
+  }
+
+  annulerSuppression() {
+    this.showConfirm.set(false);
+    this.patientASupprimer.set(null);
   }
 
   getAge(dateNaissance: string): number {
@@ -143,13 +167,11 @@ export class PatientListComponent implements OnInit {
   onPageChange(page: number) {
     this.currentPage.set(page);
   }
-
   onPageSizeChange(size: number) {
     this.pageSize.set(size);
     this.currentPage.set(1);
   }
 
-  // Dans onSearch — reset page
   onSearch(query: string) {
     this.searchQuery.set(query);
     this.currentPage.set(1);

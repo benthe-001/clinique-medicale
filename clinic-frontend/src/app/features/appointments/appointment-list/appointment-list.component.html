@@ -126,10 +126,10 @@
           <tr>
             <th class="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
             <th class="text-left py-3 px-4 text-gray-500 font-medium">
-              Patient ID
+              Patient
             </th>
             <th class="text-left py-3 px-4 text-gray-500 font-medium">
-              Médecin ID
+              Médecin
             </th>
             <th class="text-left py-3 px-4 text-gray-500 font-medium">Motif</th>
             <th class="text-left py-3 px-4 text-gray-500 font-medium">Salle</th>
@@ -156,11 +156,15 @@
                   <span class="text-gray-900">{{ formatDate(rdv.debut) }}</span>
                 </div>
               </td>
-              <td class="py-3 px-4 font-mono text-xs text-gray-500">
-                {{ rdv.patientId.substring(0, 8) }}...
+              <td class="py-3 px-4">
+                <span class="font-medium text-gray-900">{{
+                  getPatientNom(rdv.patientId)
+                }}</span>
               </td>
-              <td class="py-3 px-4 font-mono text-xs text-gray-500">
-                {{ rdv.medecinId.substring(0, 8) }}...
+              <td class="py-3 px-4">
+                <span class="text-gray-700">{{
+                  getMedecinNom(rdv.medecinId)
+                }}</span>
               </td>
               <td class="py-3 px-4 text-gray-600">{{ rdv.motif || "-" }}</td>
               <td class="py-3 px-4 text-gray-600">{{ rdv.salle || "-" }}</td>
@@ -180,7 +184,7 @@
                       <lucide-icon [img]="Check" size="15"></lucide-icon>
                     </button>
                     <button
-                      (click)="annuler(rdv.id)"
+                      (click)="demanderAnnulation(rdv)"
                       class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Annuler"
                     >
@@ -196,7 +200,7 @@
                       <lucide-icon [img]="CheckCircle" size="15"></lucide-icon>
                     </button>
                     <button
-                      (click)="annuler(rdv.id)"
+                      (click)="demanderAnnulation(rdv)"
                       class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Annuler"
                     >
@@ -224,4 +228,15 @@
 @if (showForm()) {
   <app-appointment-form (saved)="onSaved()" (cancelled)="showForm.set(false)">
   </app-appointment-form>
+}
+
+@if (showConfirm()) {
+  <app-confirm-dialog
+    title="Annuler le rendez-vous"
+    message="Voulez-vous vraiment annuler ce rendez-vous ? Cette action est irréversible."
+    confirmLabel="Annuler le rendez-vous"
+    [isLoading]="isCancelling()"
+    (confirmed)="confirmerAnnulation()"
+    (cancelled)="annulerConfirmation()"
+  ></app-confirm-dialog>
 }

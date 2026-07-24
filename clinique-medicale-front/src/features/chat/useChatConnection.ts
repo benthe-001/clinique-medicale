@@ -1,6 +1,4 @@
 // src/features/chat/useChatConnection.ts
-// Appelé une seule fois au niveau du Layout — reste actif tant que l'utilisateur
-// est connecté, peu importe la page affichée.
 
 import { useEffect } from "react";
 import type { Client } from "@stomp/stompjs";
@@ -13,6 +11,7 @@ export function useChatConnection() {
   const addMessage = useChatStore((state) => state.addMessage);
   const addNotification = useChatStore((state) => state.addNotification);
   const incrementUnread = useChatStore((state) => state.incrementUnread);
+  const setEstConnecte = useChatStore((state) => state.setEstConnecte);
 
   useEffect(() => {
     if (!user) return;
@@ -28,10 +27,12 @@ export function useChatConnection() {
         }
       },
       (notification) => addNotification(notification),
+      (connected) => setEstConnecte(connected),
     );
 
     return () => {
+      setEstConnecte(false);
       client.deactivate();
     };
-  }, [user, addMessage, addNotification, incrementUnread]);
+  }, [user, addMessage, addNotification, incrementUnread, setEstConnecte]);
 }

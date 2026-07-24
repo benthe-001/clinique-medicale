@@ -1,9 +1,10 @@
 // src/presentation/components/AppointmentFormModal.tsx
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import toast from "react-hot-toast";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -16,20 +17,29 @@ import { getErrorMessage } from "../../infrastructure/apiClient";
 import { getNomComplet as getNomCompletPatient } from "../../domain/patient";
 import { getNomComplet as getNomCompletUser } from "../../domain/user";
 
-const appointmentFormSchema = z.object({
-  patientId: z.string().min(1, "Patient requis"),
-  medecinId: z.string().min(1, "Médecin requis"),
-  debut: z
-    .string()
-    .min(1, "Date de début requise")
-    .refine((val) => new Date(val) > new Date(), {
-      message: "La date de début doit être dans le futur",
-    }),
-  fin: z.string().min(1, "Date de fin requise"),
-  motif: z.string().optional(),
-  salle: z.string().optional(),
-  notes: z.string().optional(),
-});
+const appointmentFormSchema = z
+  .object({
+    patientId: z.string().min(1, "Patient requis"),
+    medecinId: z.string().min(1, "Médecin requis"),
+    debut: z
+      .string()
+      .min(1, "Date de début requise")
+      .refine((val) => new Date(val) > new Date(), {
+        message: "La date de début doit être dans le futur",
+      }),
+    fin: z.string().min(1, "Date de fin requise"),
+    motif: z.string().optional(),
+    salle: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) =>
+      !data.debut || !data.fin || new Date(data.fin) > new Date(data.debut),
+    {
+      message: "La date de fin doit être après la date de début",
+      path: ["fin"],
+    },
+  );
 
 type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
 
@@ -51,10 +61,11 @@ export function AppointmentFormModal({
 
   const { data: patients } = usePatients();
   const { data: medecins } = useMedecins();
-  const { mutate: creer, isPending, error } = useCreateAppointment();
+  const { mutate: creer, isPending } = useCreateAppointment();
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
@@ -66,6 +77,8 @@ export function AppointmentFormModal({
       fin: defaultFin ?? "",
     },
   });
+
+  const debutValue = useWatch({ control, name: "debut" });
 
   useEffect(() => {
     if (isOpen) {
@@ -94,9 +107,11 @@ export function AppointmentFormModal({
       },
       {
         onSuccess: () => {
+          toast.success("Rendez-vous créé avec succès");
           reset();
           onClose();
         },
+        onError: (err) => toast.error(getErrorMessage(err)),
       },
     );
   }
@@ -109,6 +124,7 @@ export function AppointmentFormModal({
     value: m.id,
     label: getNomCompletUser(m),
   }));
+  const now = new Date().toISOString().slice(0, 16);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Nouveau rendez-vous">
@@ -135,7 +151,7 @@ export function AppointmentFormModal({
             label="Début"
             type="datetime-local"
             required
-            min={new Date().toISOString().slice(0, 16)}
+            min={now}
             error={errors.debut?.message}
             {...register("debut")}
           />
@@ -143,16 +159,27 @@ export function AppointmentFormModal({
             label="Fin"
             type="datetime-local"
             required
+            min={debutValue || now}
             error={errors.fin?.message}
             {...register("fin")}
           />
         </div>
-        <Input label="Motif" {...register("motif")} />
-        <Input label="Salle" {...register("salle")} />
-        <Input label="Notes" {...register("notes")} />
-        {error && (
-          <p className="text-sm text-danger-600">{getErrorMessage(error)}</p>
-        )}
+        <Input
+          label="Motif"
+          placeholder="Ex : Consultation générale, suivi tensionnel"
+          {...register("motif")}
+        />
+        <Input
+          label="Salle"
+          placeholder="Ex : Salle 3, Cabinet 1"
+          {...register("salle")}
+        />
+        <Input
+          label="Notes"
+          placeholder="Ex : Patient à jeun, prévoir ECG"
+          {...register("notes")}
+        />
+        {/* Les erreurs backend (conflit médecin, patient déjà RDV) remontent via toast.error */}
         <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>
             Annuler

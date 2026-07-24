@@ -1,6 +1,6 @@
 // src/presentation/components/NotificationBell.tsx
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { chatService } from "../../features/chat/chatService";
@@ -12,6 +12,7 @@ export function NotificationBell() {
   const user = useAuth((state) => state.user);
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const wsNotifications = useChatStore((state) => state.notifications);
 
   const { data: notifications } = useQuery({
@@ -20,6 +21,17 @@ export function NotificationBell() {
     enabled: Boolean(user),
     refetchInterval: 30000,
   });
+
+  // Ferme le panneau si clic en dehors
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
 
   const dedupliquees = new Map<string, ChatMessage>();
   [...wsNotifications, ...(notifications ?? [])].forEach((n) =>
@@ -35,10 +47,11 @@ export function NotificationBell() {
     await chatService.marquerTousLus(user.id);
     queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
     useChatStore.getState().markNotificationsRead();
+    setIsOpen(false);
   }
 
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         onClick={() => setIsOpen((v) => !v)}
         className="relative rounded-md p-2 text-gray-500 hover:bg-gray-100"
@@ -51,8 +64,9 @@ export function NotificationBell() {
           </span>
         )}
       </button>
+
       {isOpen && (
-        <div className="absolute right-0 z-10 mt-2 w-80 rounded-md border border-gray-200 bg-white shadow-lg">
+        <div className="absolute left-0 z-50 mt-2 w-80 rounded-md border border-gray-200 bg-white shadow-lg">
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
             <p className="text-sm font-semibold text-gray-900">Notifications</p>
             {count > 0 && (

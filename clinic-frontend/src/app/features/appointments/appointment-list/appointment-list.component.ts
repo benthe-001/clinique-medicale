@@ -1,12 +1,19 @@
-import { Component, OnInit, signal } from '@angular/core';
+// src/app/features/appointments/appointment-list/appointment-list.component.ts
+
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppointmentService } from '../services/appointment.service';
 import { Appointment } from '../models/appointment.model';
 import { AppointmentFormComponent } from '../appointment-form/appointment-form.component';
+import { PatientService } from '../../patients/services/patient.service';
+import { UserService, UserSummary } from '../../../core/services/user.service';
+import { Patient } from '../../patients/models/patient.model';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { fadeInUp, listAnimation } from '../../../shared/animations/animations';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { AuthService } from '../../../core/services/auth.service';
+import { ToastService } from '../../../shared/services/toast.service';
 import {
   LucideAngularModule,
   CalendarPlus,
@@ -22,6 +29,7 @@ import {
   List,
 } from 'lucide-angular';
 import { RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-appointment-list',
@@ -33,6 +41,7 @@ import { RouterLink } from '@angular/router';
     LucideAngularModule,
     AppointmentFormComponent,
     PaginationComponent,
+    ConfirmDialogComponent,
   ],
   animations: [fadeInUp, listAnimation],
   templateUrl: './appointment-list.component.html',
@@ -51,71 +60,120 @@ export class AppointmentListComponent implements OnInit {
   readonly List = List;
 
   appointments = signal<Appointment[]>([]);
-  filtered = signal<Appointment[]>([]);
+  patients = signal<Patient[]>([]);
+  medecins = signal<UserSummary[]>([]);
   loading = signal(true);
+  isCancelling = signal(false);
   showForm = signal(false);
   filterStatus = signal('TOUS');
   currentPage = signal(1);
   pageSize = signal(10);
 
+  // Confirmation annulation
+  showConfirm = signal(false);
+  rdvAAnnuler = signal<Appointment | null>(null);
+
   constructor(
     private appointmentService: AppointmentService,
+    private patientService: PatientService,
+    private userService: UserService,
     private authService: AuthService,
+    private toastService: ToastService,
   ) {}
 
   ngOnInit() {
-    this.loadAppointments();
+    this.loadAll();
   }
 
-  loadAppointments() {
+  loadAll() {
     this.loading.set(true);
     const role = this.authService.userRole();
     const userId = this.authService.currentUser()?.id;
 
-    if (role === 'MEDECIN' && userId) {
-      this.appointmentService.listerParMedecin(userId).subscribe({
-        next: (data) => {
-          this.appointments.set(data);
-          this.applyFilter(this.filterStatus());
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
-    } else {
-      this.appointmentService.listerTous().subscribe({
-        next: (data) => {
-          this.appointments.set(data);
-          this.applyFilter(this.filterStatus());
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
-    }
+    const rdv$ =
+      role === 'MEDECIN' && userId
+        ? this.appointmentService.listerParMedecin(userId)
+        : this.appointmentService.listerTous();
+
+    forkJoin({
+      appointments: rdv$,
+      patients: this.patientService.lister(),
+      medecins: this.userService.getMedecins(),
+    }).subscribe({
+      next: ({ appointments, patients, medecins }) => {
+        this.appointments.set(appointments);
+        this.patients.set(patients);
+        this.medecins.set(medecins);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
+    });
+  }
+
+  getPatientNom(patientId: string): string {
+    const p = this.patients().find((p) => p.id === patientId);
+    return p ? `${p.prenom} ${p.nom}` : 'Patient inconnu';
+  }
+
+  getMedecinNom(medecinId: string): string {
+    const m = this.medecins().find((m) => m.id === medecinId);
+    return m ? `Dr. ${m.prenom} ${m.nom}` : 'Médecin inconnu';
   }
 
   confirmer(id: string) {
     this.appointmentService.confirmer(id).subscribe({
-      next: () => this.loadAppointments(),
+      next: () => {
+        this.toastService.success('Rendez-vous confirmé');
+        this.loadAll();
+      },
+      error: () =>
+        this.toastService.error('Impossible de confirmer ce rendez-vous'),
     });
   }
 
-  annuler(id: string) {
-    if (confirm('Voulez-vous annuler ce rendez-vous ?')) {
-      this.appointmentService.annuler(id).subscribe({
-        next: () => this.loadAppointments(),
-      });
-    }
+  demanderAnnulation(rdv: Appointment) {
+    this.rdvAAnnuler.set(rdv);
+    this.showConfirm.set(true);
+  }
+
+  confirmerAnnulation() {
+    const rdv = this.rdvAAnnuler();
+    if (!rdv) return;
+    this.isCancelling.set(true);
+    this.appointmentService.annuler(rdv.id).subscribe({
+      next: () => {
+        this.toastService.success('Rendez-vous annulé');
+        this.showConfirm.set(false);
+        this.rdvAAnnuler.set(null);
+        this.isCancelling.set(false);
+        this.loadAll();
+      },
+      error: () => {
+        this.toastService.error("Impossible d'annuler ce rendez-vous");
+        this.isCancelling.set(false);
+      },
+    });
+  }
+
+  annulerConfirmation() {
+    this.showConfirm.set(false);
+    this.rdvAAnnuler.set(null);
   }
 
   terminer(id: string) {
     this.appointmentService.terminer(id).subscribe({
-      next: () => this.loadAppointments(),
+      next: () => {
+        this.toastService.success('Rendez-vous terminé');
+        this.loadAll();
+      },
+      error: () =>
+        this.toastService.error('Impossible de terminer ce rendez-vous'),
     });
   }
 
   onSaved() {
     this.showForm.set(false);
-    this.loadAppointments();
+    this.loadAll();
   }
 
   getStatusClass(status: string): string {
@@ -178,9 +236,8 @@ export class AppointmentListComponent implements OnInit {
     this.pageSize.set(size);
     this.currentPage.set(1);
   }
-
   applyFilter(status: string) {
     this.filterStatus.set(status);
-    this.currentPage.set(1); // ← reset page sur filtre
+    this.currentPage.set(1);
   }
 }

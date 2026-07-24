@@ -1,0 +1,61 @@
+<!-- src/app/shared/components/confirm-dialog/confirm-dialog.component.html -->
+
+<div class="fixed inset-0 z-50 flex items-center justify-center">
+  <!-- Backdrop -->
+  <div class="absolute inset-0 bg-black/50" (click)="cancelled.emit()"></div>
+
+  <!-- Modal -->
+  <div class="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+    <div class="flex items-start gap-4">
+      <div
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100"
+      >
+        <lucide-icon
+          [img]="AlertTriangle"
+          size="20"
+          color="#dc2626"
+        ></lucide-icon>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-base font-semibold text-gray-900">{{ title }}</h3>
+        <p class="mt-1 text-sm text-gray-500">{{ message }}</p>
+      </div>
+    </div>
+
+    <div class="mt-6 flex justify-end gap-3">
+      <button
+        type="button"
+        (click)="cancelled.emit()"
+        [disabled]="isLoading"
+        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        Annuler
+      </button>
+      <button
+        type="button"
+        (click)="confirmed.emit()"
+        [disabled]="isLoading"
+        class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+      >
+        @if (isLoading) {
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            />
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+        }
+        {{ confirmLabel }}
+      </button>
+    </div>
+  </div>
+</div>

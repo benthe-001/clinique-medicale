@@ -1,9 +1,11 @@
 // src/presentation/components/PrescriptionFormModal.tsx
 
+import { useEffect } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -25,18 +27,55 @@ const drugLineSchema = z.object({
   instructions: z.string().optional(),
 });
 
-const prescriptionFormSchema = z.object({
-  patientId: z.string().min(1, "Patient requis"),
-  medecinId: z.string().min(1, "Médecin requis"),
-  appointmentId: z.string().optional(),
-  datePrescription: z.string().min(1, "Date de prescription requise"),
-  dateExpiration: z.string().min(1, "Date d'expiration requise"),
-  diagnostic: z.string().optional(),
-  notes: z.string().optional(),
-  medicaments: z.array(drugLineSchema).min(1, "Au moins un médicament requis"),
-});
+const prescriptionFormSchema = z
+  .object({
+    patientId: z.string().min(1, "Patient requis"),
+    medecinId: z.string().min(1, "Médecin requis"),
+    appointmentId: z.string().optional(),
+    datePrescription: z.string().min(1, "Date de prescription requise"),
+    dateExpiration: z.string().min(1, "Date d'expiration requise"),
+    diagnostic: z.string().optional(),
+    notes: z.string().optional(),
+    medicaments: z
+      .array(drugLineSchema)
+      .min(1, "Au moins un médicament requis"),
+  })
+  .refine(
+    (data) =>
+      !data.datePrescription ||
+      !data.dateExpiration ||
+      new Date(data.dateExpiration) > new Date(data.datePrescription),
+    {
+      message: "La date d'expiration doit être après la date de prescription",
+      path: ["dateExpiration"],
+    },
+  );
 
 type PrescriptionFormValues = z.infer<typeof prescriptionFormSchema>;
+
+const EMPTY_DRUG = {
+  medicament: "",
+  dosage: "",
+  frequence: "",
+  duree: "",
+  instructions: "",
+};
+
+function defaultValues(
+  patientIdPreselectionne: string,
+  medecinId: string,
+): PrescriptionFormValues {
+  return {
+    patientId: patientIdPreselectionne,
+    medecinId,
+    appointmentId: "",
+    datePrescription: "",
+    dateExpiration: "",
+    diagnostic: "",
+    notes: "",
+    medicaments: [{ ...EMPTY_DRUG }],
+  };
+}
 
 interface PrescriptionFormModalProps {
   isOpen: boolean;
@@ -51,11 +90,12 @@ export function PrescriptionFormModal({
 }: PrescriptionFormModalProps) {
   const currentUser = useAuth((state) => state.user);
   const isMedecin = currentUser?.role === "MEDECIN";
+  const medecinId = isMedecin && currentUser ? currentUser.id : "";
 
   const { data: patients } = usePatients();
   const { data: medecins } = useMedecins();
   const { data: appointments } = useAppointments();
-  const { mutate: creer, isPending, error } = useCreatePrescription();
+  const { mutate: creer, isPending } = useCreatePrescription();
 
   const {
     register,
@@ -65,19 +105,7 @@ export function PrescriptionFormModal({
     formState: { errors },
   } = useForm<PrescriptionFormValues>({
     resolver: zodResolver(prescriptionFormSchema),
-    defaultValues: {
-      patientId: patientIdPreselectionne ?? "",
-      medecinId: isMedecin && currentUser ? currentUser.id : "",
-      medicaments: [
-        {
-          medicament: "",
-          dosage: "",
-          frequence: "",
-          duree: "",
-          instructions: "",
-        },
-      ],
-    },
+    defaultValues: defaultValues(patientIdPreselectionne ?? "", medecinId),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -85,6 +113,11 @@ export function PrescriptionFormModal({
     name: "medicaments",
   });
   const patientId = useWatch({ control, name: "patientId" });
+  const datePrescriptionValue = useWatch({ control, name: "datePrescription" });
+
+  useEffect(() => {
+    if (isOpen) reset(defaultValues(patientIdPreselectionne ?? "", medecinId));
+  }, [isOpen, patientIdPreselectionne, medecinId, reset]);
 
   const patientOptions = (patients ?? []).map((p) => ({
     value: p.id,
@@ -94,16 +127,15 @@ export function PrescriptionFormModal({
     value: m.id,
     label: getNomCompletUser(m),
   }));
-  const appointmentsDuPatient = (appointments ?? []).filter(
-    (a) => a.patientId === patientId,
-  );
-  const appointmentOptions = appointmentsDuPatient.map((a) => ({
-    value: a.id,
-    label: new Date(a.debut).toLocaleString("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }),
-  }));
+  const appointmentOptions = (appointments ?? [])
+    .filter((a) => a.patientId === patientId)
+    .map((a) => ({
+      value: a.id,
+      label: new Date(a.debut).toLocaleString("fr-FR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
+    }));
 
   function onSubmit(values: PrescriptionFormValues) {
     creer(
@@ -122,9 +154,11 @@ export function PrescriptionFormModal({
       },
       {
         onSuccess: () => {
-          reset();
+          toast.success("Prescription créée avec succès");
+          reset(defaultValues(patientIdPreselectionne ?? "", medecinId));
           onClose();
         },
+        onError: (err) => toast.error(getErrorMessage(err)),
       },
     );
   }
@@ -157,7 +191,7 @@ export function PrescriptionFormModal({
         <Select
           label="Rendez-vous associé (optionnel)"
           options={appointmentOptions}
-          placeholder="Aucun"
+          placeholder="Aucun rendez-vous associé"
           {...register("appointmentId")}
         />
         <div className="grid grid-cols-2 gap-4">
@@ -172,11 +206,16 @@ export function PrescriptionFormModal({
             label="Date d'expiration"
             type="date"
             required
+            min={datePrescriptionValue || undefined}
             error={errors.dateExpiration?.message}
             {...register("dateExpiration")}
           />
         </div>
-        <Input label="Diagnostic" {...register("diagnostic")} />
+        <Input
+          label="Diagnostic"
+          placeholder="Ex : Grippe saisonnière, infection urinaire"
+          {...register("diagnostic")}
+        />
 
         <div>
           <div className="mb-3 flex items-center justify-between">
@@ -184,15 +223,7 @@ export function PrescriptionFormModal({
             <Button
               type="button"
               variant="ghost"
-              onClick={() =>
-                append({
-                  medicament: "",
-                  dosage: "",
-                  frequence: "",
-                  duree: "",
-                  instructions: "",
-                })
-              }
+              onClick={() => append({ ...EMPTY_DRUG })}
             >
               <Plus className="h-4 w-4" />
               Ajouter
@@ -213,30 +244,35 @@ export function PrescriptionFormModal({
                   <Input
                     label="Médicament"
                     required
+                    placeholder="Ex : Paracétamol"
                     error={errors.medicaments?.[index]?.medicament?.message}
                     {...register(`medicaments.${index}.medicament`)}
                   />
                   <Input
                     label="Dosage"
                     required
+                    placeholder="Ex : 500mg"
                     error={errors.medicaments?.[index]?.dosage?.message}
                     {...register(`medicaments.${index}.dosage`)}
                   />
                   <Input
                     label="Fréquence"
                     required
+                    placeholder="Ex : 3 fois par jour"
                     error={errors.medicaments?.[index]?.frequence?.message}
                     {...register(`medicaments.${index}.frequence`)}
                   />
                   <Input
                     label="Durée"
                     required
+                    placeholder="Ex : 7 jours"
                     error={errors.medicaments?.[index]?.duree?.message}
                     {...register(`medicaments.${index}.duree`)}
                   />
                 </div>
                 <Input
                   label="Instructions"
+                  placeholder="Ex : À prendre après les repas"
                   {...register(`medicaments.${index}.instructions`)}
                 />
                 <div className="flex justify-end">
@@ -253,11 +289,11 @@ export function PrescriptionFormModal({
           </div>
         </div>
 
-        <Input label="Notes" {...register("notes")} />
-
-        {error && (
-          <p className="text-sm text-danger-600">{getErrorMessage(error)}</p>
-        )}
+        <Input
+          label="Notes"
+          placeholder="Ex : Renouvellement possible sur présentation de l'ordonnance"
+          {...register("notes")}
+        />
 
         <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>

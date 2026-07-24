@@ -8,6 +8,9 @@ interface ChatState {
   notifications: ChatMessage[];
   unreadCounts: Record<string, number>;
   conversationOuverteId: string | null;
+  estConnecte: boolean;
+
+  setEstConnecte: (value: boolean) => void;
   setConversationHistory: (userId: string, messages: ChatMessage[]) => void;
   addMessage: (message: ChatMessage, currentUserId: string) => void;
   addNotification: (notification: ChatMessage) => void;
@@ -23,6 +26,9 @@ export const useChatStore = create<ChatState>((set) => ({
   notifications: [],
   unreadCounts: {},
   conversationOuverteId: null,
+  estConnecte: false,
+
+  setEstConnecte: (value) => set({ estConnecte: value }),
 
   setConversationHistory: (userId, messages) =>
     set((state) => ({
