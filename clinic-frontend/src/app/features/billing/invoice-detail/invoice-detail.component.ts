@@ -12,6 +12,7 @@ import {
   XCircle,
   Clock,
   User,
+  AlertTriangle,
 } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
 
@@ -29,11 +30,16 @@ export class InvoiceDetailComponent implements OnInit {
   readonly XCircle = XCircle;
   readonly Clock = Clock;
   readonly User = User;
+  readonly AlertTriangle = AlertTriangle;
 
   invoice = signal<Invoice | null>(null);
   loading = signal(true);
   showPaiement = signal(false);
   montantPaiement = signal(0);
+
+  // Modal de confirmation d'annulation
+  annulerModal = signal(false);
+  cancelLoading = signal(false);
 
   constructor(
     private route: ActivatedRoute,
@@ -63,11 +69,27 @@ export class InvoiceDetailComponent implements OnInit {
     });
   }
 
-  annuler() {
+  ouvrirAnnulerModal() {
+    this.annulerModal.set(true);
+  }
+
+  fermerAnnulerModal() {
+    this.annulerModal.set(false);
+  }
+
+  confirmerAnnulation() {
     const inv = this.invoice();
-    if (!inv || !confirm('Annuler cette facture ?')) return;
+    if (!inv) return;
+    this.cancelLoading.set(true);
     this.invoiceService.annuler(inv.id).subscribe({
-      next: (updated) => this.invoice.set(updated),
+      next: (updated) => {
+        this.cancelLoading.set(false);
+        this.invoice.set(updated);
+        this.annulerModal.set(false);
+      },
+      error: () => {
+        this.cancelLoading.set(false);
+      },
     });
   }
 

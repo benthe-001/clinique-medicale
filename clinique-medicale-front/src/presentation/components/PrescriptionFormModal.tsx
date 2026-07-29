@@ -21,9 +21,21 @@ import { getNomComplet as getNomCompletUser } from "../../domain/user";
 
 const drugLineSchema = z.object({
   medicament: z.string().min(1, "Médicament requis"),
-  dosage: z.string().min(1, "Dosage requis"),
+  dosage: z
+    .string()
+    .min(1, "Dosage requis")
+    .regex(
+      /^\d+(\.\d+)?\s*(mg|g|ml|mcg|µg|UI|comprimé|comprimés|gélule|gélules|goutte|gouttes)$/i,
+      'Format attendu : ex. "500mg"',
+    ),
   frequence: z.string().min(1, "Fréquence requise"),
-  duree: z.string().min(1, "Durée requise"),
+  duree: z
+    .string()
+    .min(1, "Durée requise")
+    .regex(
+      /^\d+\s*(jour|jours|semaine|semaines|mois)$/i,
+      'Format attendu : ex. "7 jours"',
+    ),
   instructions: z.string().optional(),
 });
 

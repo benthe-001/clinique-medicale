@@ -195,7 +195,19 @@
                       formControlName="dosage"
                       class="input-field text-sm"
                       placeholder="5mg"
+                      [class.border-red-300]="
+                        medicamentsArray.at($index).get('dosage')?.invalid &&
+                        medicamentsArray.at($index).get('dosage')?.touched
+                      "
                     />
+                    @if (
+                      medicamentsArray.at($index).get("dosage")?.invalid &&
+                      medicamentsArray.at($index).get("dosage")?.touched
+                    ) {
+                      <p class="text-xs text-red-600">
+                        Format attendu : ex. "500mg"
+                      </p>
+                    }
                   </div>
 
                   <div class="space-y-1.5">
@@ -219,7 +231,19 @@
                       formControlName="duree"
                       class="input-field text-sm"
                       placeholder="30 jours"
+                      [class.border-red-300]="
+                        medicamentsArray.at($index).get('duree')?.invalid &&
+                        medicamentsArray.at($index).get('duree')?.touched
+                      "
                     />
+                    @if (
+                      medicamentsArray.at($index).get("duree")?.invalid &&
+                      medicamentsArray.at($index).get("duree")?.touched
+                    ) {
+                      <p class="text-xs text-red-600">
+                        Format attendu : ex. "7 jours"
+                      </p>
+                    }
                   </div>
 
                   <div class="col-span-2 flex gap-2">

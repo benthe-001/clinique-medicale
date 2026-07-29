@@ -68,9 +68,19 @@ export class PrescriptionFormComponent implements OnInit {
   createDrugLine() {
     return this.fb.group({
       medicament: ['', Validators.required],
-      dosage: [''],
+      dosage: [
+        '',
+        [
+          Validators.pattern(
+            /^\d+(\.\d+)?\s*(mg|g|ml|mcg|µg|UI|comprimé|comprimés|gélule|gélules|goutte|gouttes)$/i,
+          ),
+        ],
+      ],
       frequence: [''],
-      duree: [''],
+      duree: [
+        '',
+        [Validators.pattern(/^\d+\s*(jour|jours|semaine|semaines|mois)$/i)],
+      ],
       instructions: [''],
     });
   }

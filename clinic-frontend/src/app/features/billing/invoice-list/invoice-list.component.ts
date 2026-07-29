@@ -19,8 +19,10 @@ import {
   Clock,
   AlertCircle,
   FileDown,
+  AlertTriangle,
 } from 'lucide-angular';
 import { ToastService } from '../../../shared/services/toast.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-invoice-list',
@@ -45,6 +47,7 @@ export class InvoiceListComponent implements OnInit {
   readonly Clock = Clock;
   readonly AlertCircle = AlertCircle;
   readonly FileDown = FileDown;
+  readonly AlertTriangle = AlertTriangle;
 
   invoices = signal<Invoice[]>([]);
   patients = signal<Patient[]>([]);
@@ -57,6 +60,11 @@ export class InvoiceListComponent implements OnInit {
   selectedInvoice = signal<Invoice | null>(null);
   montantPaiement = signal(0);
 
+  // Modal de confirmation d'annulation
+  annulerModal = signal(false);
+  invoiceIdToCancel = signal<string | null>(null);
+  cancelLoading = signal(false);
+
   currentPage = signal(1);
   pageSize = signal(10);
 
@@ -64,6 +72,7 @@ export class InvoiceListComponent implements OnInit {
     private invoiceService: InvoiceService,
     private patientService: PatientService,
     private toastService: ToastService,
+    public authService: AuthService,
   ) {}
 
   ngOnInit() {
@@ -71,9 +80,11 @@ export class InvoiceListComponent implements OnInit {
     this.patientService.lister().subscribe({
       next: (p) => this.patients.set(p),
     });
-    this.invoiceService.totalRevenus().subscribe({
-      next: (t) => this.totalRevenus.set(t),
-    });
+    if (this.authService.hasAnyRole(['ADMIN'])) {
+      this.invoiceService.totalRevenus().subscribe({
+        next: (t) => this.totalRevenus.set(t),
+      });
+    }
   }
 
   loadInvoices() {
@@ -113,12 +124,34 @@ export class InvoiceListComponent implements OnInit {
     });
   }
 
-  annuler(id: string) {
-    if (confirm('Annuler cette facture ?')) {
-      this.invoiceService.annuler(id).subscribe({
-        next: () => this.loadInvoices(),
-      });
-    }
+  // Ouvre le modal de confirmation au lieu de confirm()
+  ouvrirAnnulerModal(id: string) {
+    this.invoiceIdToCancel.set(id);
+    this.annulerModal.set(true);
+  }
+
+  fermerAnnulerModal() {
+    this.annulerModal.set(false);
+    this.invoiceIdToCancel.set(null);
+  }
+
+  confirmerAnnulation() {
+    const id = this.invoiceIdToCancel();
+    if (!id) return;
+    this.cancelLoading.set(true);
+    this.invoiceService.annuler(id).subscribe({
+      next: () => {
+        this.cancelLoading.set(false);
+        this.annulerModal.set(false);
+        this.invoiceIdToCancel.set(null);
+        this.loadInvoices();
+        this.toastService.success('Facture annulée');
+      },
+      error: () => {
+        this.cancelLoading.set(false);
+        this.toastService.error("Erreur lors de l'annulation");
+      },
+    });
   }
 
   onSaved() {
