@@ -1,6 +1,7 @@
 # Crée .gitignore à la racine
 @"
 .env
+.env.example
 clinic-api/uploads/
 clinic-api/target/
 clinic-frontend/node_modules/

@@ -39,6 +39,7 @@ public class SecurityConfig {
                                 "/v3/api-docs",
                                 "/webjars/**",
                                 "/ws/**",
+                                "/actuator/health",
                                 "/api/upload/images/**"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -48,7 +49,7 @@ public class SecurityConfig {
                 )
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp
-                                .policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"))
+                                .policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"))
                         .frameOptions(frame -> frame.deny())
                         .contentTypeOptions(Customizer.withDefaults())
                         .httpStrictTransportSecurity(hsts -> hsts
@@ -62,9 +63,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://localhost:4200",
-                "http://localhost:5173"
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

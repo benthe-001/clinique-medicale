@@ -1,5 +1,5 @@
 upload:
-  dir: uploads
+  dir: ${UPLOAD_DIR:uploads}
 
 spring:
   application:
@@ -11,9 +11,9 @@ spring:
       max-request-size: 5MB
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/clinic_db
-    username: postgres
-    password: Mentalist1986
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:clinic_db}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -30,10 +30,10 @@ spring:
     locations: classpath:db/migration
 
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
@@ -45,15 +45,18 @@ management:
         include: health
   endpoint:
     health:
-      show-details: never
+      show-details: ${HEALTH_DETAILS:never}
+  health:
+    mail:
+      enabled: false
 
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
 
 app:
   jwt:
-    secret: ${JWT_SECRET:cliqueSecretKey2024SuperLongKeyForHMACAlgorithm256Bits!!}
-    expiration: 86400000    # 24h en ms
+    secret: ${JWT_SECRET:dev-only-secret-key-not-for-production-min-32-chars}
+    expiration: ${JWT_EXPIRATION:86400000}
 
 springdoc:
   swagger-ui:
